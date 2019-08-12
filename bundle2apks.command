@@ -14,6 +14,8 @@ download_fail(){
     clear
     echo "download fail! Please press command and click to download manually from below link:"
     echo "https://github.com/google/bundletool/releases/download/0.10.2/bundletool-all-0.10.2.jar"
+    echo "you can download latest copy from below link:"
+    echo "https://github.com/google/bundletool/releases"
     echo "and Please Keep me $fname and bundletool-all-0.10.2.jar together in folder '$curDir' and Try again!"
     #exit
     #closeWindow
