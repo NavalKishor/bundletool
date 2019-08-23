@@ -1,10 +1,5 @@
 #!/bin/sh
 #set -x
-str="This is the main string"
-
-if [[ $str = *"is the main"* ]]; then
-  echo "Yes"
-fi
 clear
 Android_Home=~/Library/Android/sdk
 buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
