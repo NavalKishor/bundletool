@@ -1,5 +1,10 @@
 #!/bin/sh
 #set -x
+str="This is the main string"
+
+if [[ $str = *"is the main"* ]]; then
+  echo "Yes"
+fi
 clear
 Android_Home=~/Library/Android/sdk
 buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
@@ -8,10 +13,12 @@ export PATH=$PATH:$Android_Home
 echo "pass argument 1=make apk for connected device and install on device"
 echo "pass argument 2=install universal apk to connected device"
 install=$1
+connectedDeviceOnly=1
+universalApk=2
 fname=$(basename $0)
 moveto=$(dirname $0)
 curDir=`pwd`
-echo "$curDir => $moveto"
+echo "Your in the $curDir :moving to=> $moveto"
 if [ $curDir != moveto ]
 then
     cd $moveto
@@ -45,7 +52,7 @@ for i in $(ls -1 $(dirname $4));do
     fi
 done;
 apknames=${apknames:0:${#apknames}-1}"]"
-echo $apknames
+echo "ListOfApkToInstall:$apknames"
 cat <<EOM >$3/output$1.txt
 [{"outputType":{"type":"APK"},"apkData":{"type":"MAIN","packageName":$pn,"versionCode":$vc,"versionName":"$vn","enabled":true,"outputApkFiles":$apknames,"createdAppName":"$(basename $4)","yourAppName":"$apkname"},"inputPath":"$2","outPath":"$(dirname $4)","properties":{}}]
 EOM
@@ -72,8 +79,14 @@ check_filesize(){
     fi
 }
 count=0
+locToFind=$(dirname $(pwd))
+echo "i am looking here:"$locToFind
 echo "Please wait searching for the App bundle file..."
-for foundat in $(find . -name "*.aab" -type f | grep ".aab"); do
+for foundat in $(find $locToFind -name "*.aab" -type f | grep ".aab"); do
+if [[ $foundat = *"/build/intermediates/intermediary_bundle/"* ]]
+then
+    continue
+fi
 count=$(($count+1));
 echo "$foundat   ==>$count"
 if [ -s "$foundat" ]
@@ -91,31 +104,36 @@ then
            else
                mkdir apks
            fi
-           if [ $install = 1 ]
+           if [ "$install" = "$connectedDeviceOnly" ]
            then
-               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device 2>/dev/null
+               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android" 2>/dev/null
                unzip -o out.apks -d apks/device$count 2>/dev/null
                appDetail $count $foundat ./apks/device$count ./apks/device$count/splits/base-master.apk
                java -jar ./bundletool-all-0.10.2.jar install-apks --apks=out.apks 2>/dev/null
                status=$?
                if [ $status != 0 ]
                then
-                    adb install -r apks/device$count/$(ls apks/device$count/*/*/*en.apk) 2>/dev/null
-                    echo $?
+                    adb install-multiple -r -t -g apks/device$count/splits/*.apk 2>/dev/null
+                    if [ "$?" = "0" ]
+                    then
+                        adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
+                    fi
                else
                     adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
                fi
            fi
-           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --mode=universal
-           unzip -o out.apks -d apks/univeral$count
-           appDetail $count $foundat ./apks/univeral$count ./apks/univeral$count/universal.apk
-           if [ $install = 2 ]
+           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --mode=universal --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android"
+           unzip -o out.apks -d apks/universal$count
+           #apksigner sign --ks ../debug.keystore --out ./apks/universal$count/universal_debug_sign.apk ./apks/universal$count/universal.apk
+           appDetail $count $foundat ./apks/universal$count ./apks/universal$count/universal.apk
+           open apks/universal$count
+           if [ "$install" = "$universalApk" ]
            then
-               adb install -rf apks/univeral$count/univeral.apk 2>/dev/null
+               adb install -rf apks/universal$count/universal.apk 2>/dev/null
                adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
            fi
            #ls -l apks
-           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite
+           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android"
            unzip -o out.apks -d apks/splits$count
            appDetail $count $foundat ./apks/splits$count ./apks/splits$count/splits/base-master.apk
            #ls -l apks
