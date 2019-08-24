@@ -13,7 +13,7 @@ universalApk=2
 fname=$(basename $0)
 moveto=$(dirname $0)
 curDir=`pwd`
-echo "Your in the $curDir :moving to=> $moveto"
+#echo "Your in the $curDir :moving to=> $moveto"
 if [ $curDir != moveto ]
 then
     cd $moveto
@@ -124,7 +124,7 @@ then
            open apks/universal$count
            if [ "$install" = "$universalApk" ]
            then
-               adb install -rf apks/universal$count/universal.apk 2>/dev/null
+               adb install -r -f -g apks/universal$count/universal.apk 2>/dev/null
                adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
            fi
            #ls -l apks
