@@ -49,7 +49,7 @@ done;
 apknames=${apknames:0:${#apknames}-1}"]"
 echo "ListOfApkToInstall:$apknames"
 cat <<EOM >$3/output$1.txt
-[{"outputType":{"type":"APK"},"apkData":{"type":"MAIN","packageName":$pn,"versionCode":$vc,"versionName":"$vn","enabled":true,"outputApkFiles":$apknames,"createdAppName":"$(basename $4)","yourAppName":"$apkname"},"inputPath":"$2","outPath":"$(dirname $4)","properties":{}}]
+[{"outputType":{"type":"APK"},"apkData":{"type":"MAIN","packageName":$pn,"versionCode":$vc,"versionName":"$vn","enabled":true,"outputApkFiles":$apknames,"createdAppName":"$(basename $4)","yourAppName":"$apkname","Time":$(date +"%Y-%m-%d %T")},"inputPath":"$2","outPath":"$(dirname $4)","properties":{}}]
 EOM
 }
 download_fail(){
