@@ -1,15 +1,53 @@
 #!/bin/sh
 #set -x
 clear
+#install="-1"
+while getopts i:d:p:a:k:?h arg
+do
+    case $arg in
+        i)  install=$OPTARG
+            ;;
+        d)  debugKeyStore=$OPTARG
+            ;;
+        p)  pass=$OPTARG
+            ;;
+        a)  ksKeyAlias=$OPTARG
+            ;;
+        k)  keyPass=$OPTARG
+            ;;
+        :)  echo "Invalid option: $OPTARG requires an argument" 1>&2
+            ;;
+        h|? ) echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-?] [-h]"
+             exit 2
+            ;;
+        *)  echo "Hmm, seems i've never used it.$OPTARG"
+            ;;
+    esac
+done
+#echo "{$#,install:$install\ndebugKeyStore:$debugKeyStore\npass:$pass\nksKeyAlias:$ksKeyAlias\nkeyPass:$keyPass\ninProject:$inProject\n[$1,$2,$3,$4,$5,$6,$7,$8,$9]\n\$@:[$@]}"
 Android_Home=~/Library/Android/sdk
 buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
 Android_Home=$Android_Home:$Android_Home/tools:$Android_Home/platform-tools:$Android_Home/build-tools/$buildToolVer/
 export PATH=$PATH:$Android_Home
-echo "pass argument 1=make apk for connected device and install on device"
-echo "pass argument 2=install universal apk to connected device"
-install=$1
+if [ $# -le 7 -o -z "$debugKeyStore" -o -z "$pass" -o -z "$ksKeyAlias" -o -z "$keyPass" ]
+then
+    echo "no argument $2"
+    debugKeyStore=$(ls  ~/.android/debug.keystore)
+    pass="pass:android"
+    ksKeyAlias="AndroidDebugKey"
+    keyPass="pass:android"
+    inProject=$(ls ../debug.keystore)
+    if [ ! -z $inProject ];then
+        debugKeyStore="$inProject"
+    fi
+fi
+echo "pass argument 1=make apk for connected device and install on device."
+echo "pass argument 2=install universal apk to connected device."
+install="${install:-$1}"
 connectedDeviceOnly=1
 universalApk=2
+#echo "[$install]\n$debugKeyStore\n$pass\n$ksKeyAlias\n$keyPass\n$inProject\n[$1,$2,$3,$4,$5,$6,$7,$8,$9]$@"
+#exit
 fname=$(basename $0)
 moveto=$(dirname $0)
 curDir=`pwd`
@@ -101,7 +139,7 @@ then
            fi
            if [ "$install" = "$connectedDeviceOnly" ]
            then
-               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android" 2>/dev/null
+               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass" 2>/dev/null
                unzip -o out.apks -d apks/device$count 2>/dev/null
                appDetail $count $foundat ./apks/device$count ./apks/device$count/splits/base-master.apk
                java -jar ./bundletool-all-0.10.2.jar install-apks --apks=out.apks 2>/dev/null
@@ -117,7 +155,7 @@ then
                     adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
                fi
            fi
-           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --mode=universal --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android"
+           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --mode=universal --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass"
            unzip -o out.apks -d apks/universal$count
            #apksigner sign --ks ../debug.keystore --out ./apks/universal$count/universal_debug_sign.apk ./apks/universal$count/universal.apk
            appDetail $count $foundat ./apks/universal$count ./apks/universal$count/universal.apk
@@ -128,7 +166,7 @@ then
                adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
            fi
            #ls -l apks
-           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --ks=../debug.keystore --ks-pass="pass:android" --ks-key-alias="AndroidDebugKey" --key-pass="pass:android"
+           java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass"
            unzip -o out.apks -d apks/splits$count
            appDetail $count $foundat ./apks/splits$count ./apks/splits$count/splits/base-master.apk
            #ls -l apks
