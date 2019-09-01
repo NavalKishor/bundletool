@@ -1,6 +1,10 @@
 #!/bin/sh
 #set -x
 clear
+Android_Home=~/Library/Android/sdk
+buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
+Android_Home=$Android_Home:$Android_Home/tools:$Android_Home/platform-tools:$Android_Home/build-tools/$buildToolVer/
+export PATH=$PATH:$Android_Home
 #install="-1"
 usage(){
     echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-?] [-h]"
@@ -8,6 +12,7 @@ usage(){
     echo "-d : to pass keystore password"
     echo "-p : to pass keystore key Alias name"
     echo "-p : to pass key password"
+   # echo "-n : to pass number to install apk when multiple device is connected"
     echo "-h : to get help"
     echo "-? : to get help"
 }
@@ -18,6 +23,13 @@ while getopts i:d:p:a:k:?h arg
 do
     case $arg in
         i)  install=$OPTARG
+            devConted=$(adb devices | cut -d ' ' -f 5| xargs)
+            devConted1=${devConted%%device*} #back long del first device
+            devConted=${devConted//device/ } #
+            #last device
+            for device in $devConted; do
+                installOn="-s $device"
+            done
             ;;
         d)  debugKeyStore=$OPTARG
             ;;
@@ -36,16 +48,13 @@ do
             ;;
     esac
 done
+
 if [ ! -f "$debugKeyStore" ];then
-    echo "The file '$debugKeyStore' does not exist";
+    echo "The file '$debugKeyStore' does not exist. Using default parameters";
     unset debugKeyStore
-    echo $debugKeyStore":unset"
+    #echo $debugKeyStore":unset"
 fi
 #echo "{$#,install:$install\ndebugKeyStore:$debugKeyStore\npass:$pass\nksKeyAlias:$ksKeyAlias\nkeyPass:$keyPass\ninProject:$inProject\n[$1,$2,$3,$4,$5,$6,$7,$8,$9]\n\$@:[$@]}"
-Android_Home=~/Library/Android/sdk
-buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
-Android_Home=$Android_Home:$Android_Home/tools:$Android_Home/platform-tools:$Android_Home/build-tools/$buildToolVer/
-export PATH=$PATH:$Android_Home
 if [ $# -le 7 -o -z "$debugKeyStore" -o -z "$pass" -o -z "$ksKeyAlias" -o -z "$keyPass" ]
 then
     #echo "no argument $2"
@@ -82,13 +91,15 @@ appDetail()
 apkname=$(basename $2)
 apkname=${apkname:0:${#apkname}-4}
 #echo "Apks of the bundle at path $2" > $3/app$1.txt
-launchActivity=$(aapt dump badging $4 | grep -i launchable-activity | cut -d =  -f 2 | cut -d ' ' -f 1)
+dumpcmd=$(aapt dump badging $4 | grep -i launchable-activity)
+launchActivity=$(echo "$dumpcmd" | cut -d =  -f 2 | cut -d ' ' -f 1)
 launchActivity=$(replace $launchActivity)
-pn=$(aapt dump badging $4 | grep -i versionCode | cut -d =  -f 2 | cut -d ' ' -f 1)
+dumpcmd=$(aapt dump badging $4 | grep -i versionCode)
+pn=$(echo "$dumpcmd" | cut -d =  -f 2 | cut -d ' ' -f 1)
 pn=$(replace $pn)
-local vc=$(aapt dump badging $4 | grep -i versionCode | cut -d =  -f 3 | cut -d ' ' -f 1)
+local vc=$(echo "$dumpcmd" | cut -d =  -f 3 | cut -d ' ' -f 1)
 vc=$(replace $vc)
-local vn=$(aapt dump badging $4 | grep -i versionName | cut -d =  -f 4 | cut -d ' ' -f 1)
+local vn=$(echo "$dumpcmd" | grep -i versionName | cut -d =  -f 4 | cut -d ' ' -f 1)
 vn=$(replace $vn)
 lsDir=$(ls -1 $(dirname $4))
 dirOfApk=$(dirname $4)
@@ -98,8 +109,8 @@ for i in $lsDir;do
     if [ ${i##*.} == apk ]
     then
         if [ "app" != "$apkname" ]; then
-            cp $dirOfApk/$i $dirOfApk/$apkTypeName$apkname-$vc-$i
-            apknames=$apknames$apkTypeName$apkname-$vc-$i,
+            cp $dirOfApk/$i $dirOfApk/$apkTypeName${apkname}_${vc}_$i
+            apknames=$apknames$apkTypeName"$apkname"_"$vc"_$i,
         else
             apknames=$apknames$i,
         fi
@@ -154,11 +165,11 @@ then
            if [ -s "apks" ]
            then
                rm -fr apks/universal$count/*  apks/splits$count/*  apks/device$count/*
-               echo "clearing old builds from apks/univeral$count/ and apks/splits$count apks/device$count"
+               echo "clearing old builds from apks/univeral$count/ and apks/splits$count/ apks/device$count/"
            else
                mkdir apks
            fi
-           if [ "$install" = "$connectedDeviceOnly" ]
+           if [ -n "$devConted" -a "$install" = "$connectedDeviceOnly" ]
            then
                java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass" 2>/dev/null
                unzip -o out.apks -d apks/device$count 2>/dev/null
