@@ -7,25 +7,27 @@ Android_Home=$Android_Home:$Android_Home/tools:$Android_Home/platform-tools:$And
 export PATH=$PATH:$Android_Home
 #install="-1"
 usage(){
-    echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-?] [-h]"
+    echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-n] [-?] [-h]"
     echo "-i : to install the apks \n\tpass 1 for connected devices and \n\tpass 2 for the universal apks"
     echo "-d : to pass keystore password"
     echo "-p : to pass keystore key Alias name"
     echo "-p : to pass key password"
-   # echo "-n : to pass number to install apk when multiple device is connected"
+    echo "-n : to pass number to install apk when multiple device is connected"
     echo "-h : to get help"
     echo "-? : to get help"
 }
 #echo "pass argument 1=make apk for connected device and install on device."
 #echo "pass argument 2=install universal apk to connected device."
 #usage
-while getopts i:d:p:a:k:?h arg
+while getopts i:d:p:a:k:n:?h arg
 do
     case $arg in
         i)  install=$OPTARG
-            devConted=$(adb devices | cut -d ' ' -f 5| xargs)
-            devConted1=${devConted%%device*} #back long del first device
-            devConted=${devConted//device/ } #
+            if [ -z "$devConted" ];then
+                devConted=$(adb devices | cut -d ' ' -f 5| xargs)
+                installOn="-s ${devConted%%device*}" #back long del first device
+                devConted=${devConted//device/ } #
+            fi
             #last device
             for device in $devConted; do
                 installOn="-s $device"
@@ -38,6 +40,20 @@ do
         a)  ksKeyAlias=$OPTARG
             ;;
         k)  keyPass=pass:$OPTARG
+            ;;
+        n)  c=0
+            if [ -z "$devConted" ];then
+               devConted=$(adb devices | cut -d ' ' -f 5| xargs)
+               installOn="-s ${devConted%%device*}" #back long del first device
+               devConted=${devConted//device/ } #
+            fi
+            for device in $devConted; do
+                c=$(($c+1));
+                if [ "$OPTARG" = "$c" ];then
+                    installOn="-s $device"
+                fi
+            done
+            unset c
             ;;
         :)  echo "Invalid option: $OPTARG requires an argument" 1>&2
             ;;
@@ -171,20 +187,20 @@ then
            fi
            if [ -n "$devConted" -a "$install" = "$connectedDeviceOnly" ]
            then
-               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass" 2>/dev/null
+               java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --connected-device --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass" --device-id=${installOn:3} 2>/dev/null
                unzip -o out.apks -d apks/device$count 2>/dev/null
                appDetail $count $foundat ./apks/device$count ./apks/device$count/splits/base-master.apk
                java -jar ./bundletool-all-0.10.2.jar install-apks --apks=out.apks 2>/dev/null
                status=$?
                if [ $status != 0 ]
                then
-                    adb install-multiple -r -t -g apks/device$count/splits/*.apk 2>/dev/null
+                    adb $installOn install-multiple -r -t -g apks/device$count/splits/*.apk 2>/dev/null
                     if [ "$?" = "0" ]
                     then
-                        adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
+                        adb $installOn shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
                     fi
                else
-                    adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
+                    adb $installOn shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
                fi
            fi
            java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --mode=universal --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass"
@@ -194,8 +210,8 @@ then
            open apks/universal$count
            if [ "$install" = "$universalApk" ]
            then
-               adb install -r -f -g apks/universal$count/universal.apk 2>/dev/null
-               adb shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
+               adb $installOn install -r -f -g apks/universal$count/universal.apk 2>/dev/null
+               adb $installOn shell am start -n "$pn/$launchActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER
            fi
            #ls -l apks
            java -jar ./bundletool-all-0.10.2.jar build-apks --bundle=$foundat --output=out.apks --overwrite --ks=$debugKeyStore --ks-pass="$pass" --ks-key-alias="$ksKeyAlias" --key-pass="$keyPass"
