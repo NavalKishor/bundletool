@@ -2,6 +2,18 @@
 #set -x
 clear
 #install="-1"
+usage(){
+    echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-?] [-h]"
+    echo "-i : to install the apks \n\tpass 1 for connected devices and \n\tpass 2 for the universal apks"
+    echo "-d : to pass keystore password"
+    echo "-p : to pass keystore key Alias name"
+    echo "-p : to pass key password"
+    echo "-h : to get help"
+    echo "-? : to get help"
+}
+#echo "pass argument 1=make apk for connected device and install on device."
+#echo "pass argument 2=install universal apk to connected device."
+#usage
 while getopts i:d:p:a:k:?h arg
 do
     case $arg in
@@ -9,21 +21,26 @@ do
             ;;
         d)  debugKeyStore=$OPTARG
             ;;
-        p)  pass=$OPTARG
+        p)  pass=pass:$OPTARG
             ;;
         a)  ksKeyAlias=$OPTARG
             ;;
-        k)  keyPass=$OPTARG
+        k)  keyPass=pass:$OPTARG
             ;;
         :)  echo "Invalid option: $OPTARG requires an argument" 1>&2
             ;;
-        h|? ) echo "Usage: $0 [-i] [-d] [-p] [-a] [-k] [-?] [-h]"
-             exit 2
+        h|? ) usage
+              exit 2
             ;;
         *)  echo "Hmm, seems i've never used it.$OPTARG"
             ;;
     esac
 done
+if [ ! -f "$debugKeyStore" ];then
+    echo "The file '$debugKeyStore' does not exist";
+    unset debugKeyStore
+    echo $debugKeyStore":unset"
+fi
 #echo "{$#,install:$install\ndebugKeyStore:$debugKeyStore\npass:$pass\nksKeyAlias:$ksKeyAlias\nkeyPass:$keyPass\ninProject:$inProject\n[$1,$2,$3,$4,$5,$6,$7,$8,$9]\n\$@:[$@]}"
 Android_Home=~/Library/Android/sdk
 buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
@@ -31,7 +48,7 @@ Android_Home=$Android_Home:$Android_Home/tools:$Android_Home/platform-tools:$And
 export PATH=$PATH:$Android_Home
 if [ $# -le 7 -o -z "$debugKeyStore" -o -z "$pass" -o -z "$ksKeyAlias" -o -z "$keyPass" ]
 then
-    echo "no argument $2"
+    #echo "no argument $2"
     debugKeyStore=$(ls  ~/.android/debug.keystore)
     pass="pass:android"
     ksKeyAlias="AndroidDebugKey"
@@ -41,8 +58,6 @@ then
         debugKeyStore="$inProject"
     fi
 fi
-echo "pass argument 1=make apk for connected device and install on device."
-echo "pass argument 2=install universal apk to connected device."
 install="${install:-$1}"
 connectedDeviceOnly=1
 universalApk=2
@@ -75,13 +90,19 @@ local vc=$(aapt dump badging $4 | grep -i versionCode | cut -d =  -f 3 | cut -d 
 vc=$(replace $vc)
 local vn=$(aapt dump badging $4 | grep -i versionName | cut -d =  -f 4 | cut -d ' ' -f 1)
 vn=$(replace $vn)
+lsDir=$(ls -1 $(dirname $4))
+dirOfApk=$(dirname $4)
+apkTypeName=$(basename $(dirname $2))
 apknames="["
-for i in $(ls -1 $(dirname $4));do
+for i in $lsDir;do
     if [ ${i##*.} == apk ]
     then
-        #mv $4 $3/$apkname.apk
-        apknames=$apknames$i,
-        #echo $apknames
+        if [ "app" != "$apkname" ]; then
+            cp $dirOfApk/$i $dirOfApk/$apkTypeName$apkname-$vc-$i
+            apknames=$apknames$apkTypeName$apkname-$vc-$i,
+        else
+            apknames=$apknames$i,
+        fi
     fi
 done;
 apknames=${apknames:0:${#apknames}-1}"]"
@@ -132,7 +153,7 @@ then
            rm -fr out.apks
            if [ -s "apks" ]
            then
-               rm -fr apks/univeral$count/*  apks/splits$count apks/device$count
+               rm -fr apks/universal$count/*  apks/splits$count/*  apks/device$count/*
                echo "clearing old builds from apks/univeral$count/ and apks/splits$count apks/device$count"
            else
                mkdir apks
