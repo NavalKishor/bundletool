@@ -1,5 +1,6 @@
 #!/bin/sh
 #set -x
+#Author Naval Kishor Jha, Date : 16-Aug-2019
 clear
 Android_Home=~/Library/Android/sdk
 buildToolVer=$(ls -1  $Android_Home/build-tools/ | tail -1)
@@ -135,7 +136,7 @@ done;
 apknames=${apknames:0:${#apknames}-1}"]"
 echo "ListOfApkToInstall:$apknames"
 cat <<EOM >$3/output$1.txt
-[{"outputType":{"type":"APK"},"apkData":{"type":"MAIN","packageName":$pn,"versionCode":$vc,"versionName":"$vn","enabled":true,"outputApkFiles":$apknames,"createdAppName":"$(basename $4)","yourAppName":"$apkname","Time":$(date +"%Y-%m-%d %T")},"inputPath":"$2","outPath":"$(dirname $4)","properties":{}}]
+[{"outputType":{"type":"APK"},"apkData":{"type":"MAIN","packageName":$pn,"versionCode":$vc,"versionName":"$vn","Time":$(date +"%Y-%m-%d %T"),"enabled":true,"outputApkFiles":$apknames,"createdAppName":"$(basename $4)","yourAppName":"$apkname"},"inputPath":"$2","outPath":"$(dirname $4)","properties":{}}]
 EOM
 }
 download_fail(){
@@ -161,7 +162,7 @@ check_filesize(){
 }
 count=0
 locToFind=$(dirname $(pwd))
-echo "i am looking here:"$locToFind
+echo "i started looking from here:"$locToFind
 echo "Please wait searching for the App bundle file..."
 for foundat in $(find $locToFind -name "*.aab" -type f | grep ".aab"); do
 if [[ $foundat = *"/build/intermediates/intermediary_bundle/"* ]]
